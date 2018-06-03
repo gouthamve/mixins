@@ -117,6 +117,8 @@
     container.withArgs([
       'bootstrap',
       '/config/contour.yaml',
+      '--admin-address',
+      '0.0.0.0',
     ]) +
     container.withVolumeMounts([volumeMount.new('contour-config', '/config')]),
 
@@ -136,7 +138,11 @@
       weightedPodAffinityTerm.mixin.podAffinityTerm.labelSelector.withMatchLabels(
         $.contour_deployment.spec.template.metadata.labels,
       ),
-    ),
+    ) +
+    deployment.mixin.spec.template.metadata.withAnnotations({
+      'prometheus.io/path': '/stats',
+      'prometheus.io/format': 'prometheus',
+    }),
 
 
   contour_service:
