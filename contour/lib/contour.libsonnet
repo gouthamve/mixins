@@ -141,7 +141,7 @@
     ) +
     deployment.mixin.spec.template.metadata.withAnnotations({
       'prometheus.io/path': '/stats',
-      'prometheus.io/format': 'prometheus',
+      'prometheus.io/param-format': 'prometheus',
     }),
 
 
@@ -154,5 +154,6 @@
         servicePort.newNamed('https', 443, 8443),
       ],
     ) +
-    service.mixin.metadata.withNamespace($._config.namespace),
+    service.mixin.metadata.withNamespace($._config.namespace) +
+    service.mixin.spec.withType('LoadBalancer'),
 }
