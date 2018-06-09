@@ -3,11 +3,6 @@
 local k = import 'k.libsonnet';
 
 k {
-  _config+:: {
-    enable_rbac: true,
-    namespace: error 'Must define a namespace',
-  },
-
   core+: {
     v1+: {
       configMap+: {
