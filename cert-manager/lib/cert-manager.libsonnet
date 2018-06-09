@@ -1,14 +1,7 @@
 {
   local policyRule = $.rbac.v1beta1.policyRule,
-  local crd = $.apiextensions.v1beta1.customResourceDefinition,
   local deployment = $.apps.v1beta1.deployment,
   local container = $.core.v1.container,
-  local containerPort = $.core.v1.containerPort,
-  local volumeMount = $.core.v1.volumeMount,
-  local service = $.core.v1.service,
-  local servicePort = service.mixin.spec.portsType,
-  local podAntiAffinity = deployment.mixin.spec.template.spec.affinity.podAntiAffinity,
-  local weightedPodAffinityTerm = podAntiAffinity.preferredDuringSchedulingIgnoredDuringExecutionType,
 
   certmanager_namespace:
     $.core.v1.namespace.new($._config.namespace),
