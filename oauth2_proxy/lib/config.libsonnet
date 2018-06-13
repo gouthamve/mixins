@@ -10,6 +10,7 @@
     upstream: error 'Must define an upstream',
 
     email_domain: '*',
+    pass_basic_auth: 'false',
 
   },
 

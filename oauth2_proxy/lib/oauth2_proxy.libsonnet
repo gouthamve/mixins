@@ -16,6 +16,7 @@
       '-redirect-url=%s' % $._config.redirect_url,
       '-upstream=%s' % $._config.upstream,
       '-email-domain=%s' % $._config.email_domain,
+      '-pass-basic-auth=%s' % $._config.pass_basic_auth,
     ]) +
     container.withEnvFromSecret('oauth2-proxy'),
 
