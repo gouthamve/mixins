@@ -104,7 +104,7 @@
 
 
   certmanager_container::
-    container.new('cert-manager', 'quay.io/jetstack/cert-manager-controller:v0.3.0') +
+    container.new('cert-manager', 'quay.io/jetstack/cert-manager-controller:v0.3.1') +
     container.withPorts([
       $.core.v1.containerPort.new('http-metrics', 9402),
     ]) +
