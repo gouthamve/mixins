@@ -3,6 +3,7 @@ package common
 import (
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
+	"github.com/grafana/grafana-foundation-sdk/go/logs"
 	"github.com/grafana/grafana-foundation-sdk/go/resource"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
@@ -56,6 +57,14 @@ func NewTimeseriesPanelBuilder() *timeseries.PanelBuilder {
 			Type: cog.ToPtr(string(PrometheusDSType)),
 			Uid:  cog.ToPtr("${" + PrometheusDSUid + "}"),
 		}).Height(7)
+}
+
+func NewLogsPanelBuilder() *logs.PanelBuilder {
+	return logs.NewPanelBuilder().
+		Datasource(dashboard.DataSourceRef{
+			Type: cog.ToPtr(string(LokiDSType)),
+			Uid:  cog.ToPtr("${" + LokiDSUid + "}"),
+		})
 }
 
 // HTTPRedReqsOverrides returns field overrides for HTTP RED metrics (1xx, 2xx, 3xx, 4xx, 5xx)

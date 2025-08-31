@@ -2,6 +2,7 @@ package dashboard
 
 import (
 	"fmt"
+	"strings"
 
 	mixincommon "github.com/gouthamve/mixins/common"
 
@@ -9,12 +10,21 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/cog/variants"
 	"github.com/grafana/grafana-foundation-sdk/go/common"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
+	"github.com/grafana/grafana-foundation-sdk/go/logs"
+	"github.com/grafana/grafana-foundation-sdk/go/loki"
 	"github.com/grafana/grafana-foundation-sdk/go/prometheus"
 	"github.com/grafana/grafana-foundation-sdk/go/table"
 	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 )
 
-func Build() (dashboard.Dashboard, error) {
+type Config struct {
+	LogsQuery string
+
+	ServiceNamespaces []string
+	ServiceNames      []string
+}
+
+func Build(cfg Config) (dashboard.Dashboard, error) {
 	builder := dashboard.NewDashboardBuilder("OTel Application Semantic convention").
 		Uid("otel-app-semantic-conventions").
 		Tags([]string{"otel", "generated"}).
@@ -24,14 +34,19 @@ func Build() (dashboard.Dashboard, error) {
 		Variables([]cog.Builder[dashboard.VariableModel]{
 			mixincommon.NewPrometheusDSSelector(),
 			mixincommon.NewLokiDSSelector(),
-			serviceNamespaceVar(),
-			serviceNameVar(),
+			serviceNamespaceVar(cfg.ServiceNamespaces),
+			serviceNameVar(cfg.ServiceNames),
 		}).
 		WithRow(dashboard.NewRowBuilder("HTTP RED Overview")).
 		WithPanel(rpsOverviewPanel()).
 		WithPanel(latencyOverviewPanel()).
 		WithRow(dashboard.NewRowBuilder("HTTP Route Details")).
 		WithPanel(rpsDetailsPanel())
+
+	if cfg.LogsQuery != "" {
+		builder = builder.WithRow(dashboard.NewRowBuilder("Logs")).
+			WithPanel(logsTablePanel(cfg.LogsQuery))
+	}
 
 	return builder.Build()
 }
@@ -184,8 +199,23 @@ func rpsDetailsPanel() *table.PanelBuilder {
 	})
 }
 
-func serviceNamespaceVar() *dashboard.QueryVariableBuilder {
-	return dashboard.NewQueryVariableBuilder("service_namespace").
+func logsTablePanel(logsQuery string) *logs.PanelBuilder {
+	return mixincommon.NewLogsPanelBuilder().
+		WithTarget(
+			loki.NewDataqueryBuilder().
+				Expr(logsQuery).
+				Range(true),
+		).
+		EnableInfiniteScrolling(true).
+		GridPos(dashboard.GridPos{
+			H: 10,
+			W: 24,
+		})
+
+}
+
+func serviceNamespaceVar(options []string) *dashboard.QueryVariableBuilder {
+	queryVar := dashboard.NewQueryVariableBuilder("service_namespace").
 		Label("Service Namespace").
 		Query(dashboard.StringOrMap{String: cog.ToPtr(serviceNamespaceVarQuery)}).
 		Datasource(dashboard.DataSourceRef{
@@ -196,10 +226,20 @@ func serviceNamespaceVar() *dashboard.QueryVariableBuilder {
 		IncludeAll(true).
 		AllValue(".*").
 		Refresh(dashboard.VariableRefreshOnDashboardLoad)
+
+	if len(options) > 0 {
+		optionsRegex := fmt.Sprintf("/^(%s)$/", strings.Join(options, "|"))
+		queryVar = queryVar.Regex(optionsRegex).AllValue("")
+		if len(options) == 1 {
+			queryVar = queryVar.Multi(false).IncludeAll(false)
+		}
+	}
+
+	return queryVar
 }
 
-func serviceNameVar() *dashboard.QueryVariableBuilder {
-	return dashboard.NewQueryVariableBuilder("service_name").
+func serviceNameVar(options []string) *dashboard.QueryVariableBuilder {
+	queryVar := dashboard.NewQueryVariableBuilder("service_name").
 		Label("Service Name").
 		Query(dashboard.StringOrMap{
 			String: cog.ToPtr(serviceNameVarQuery),
@@ -210,99 +250,111 @@ func serviceNameVar() *dashboard.QueryVariableBuilder {
 		}).
 		Multi(true).
 		IncludeAll(true).
-		AllValue(".*").
+		AllValue(".+").
 		Refresh(dashboard.VariableRefreshOnDashboardLoad)
+
+	if len(options) > 0 {
+		optionsRegex := fmt.Sprintf("/^(%s)$/", strings.Join(options, "|"))
+		queryVar = queryVar.Regex(optionsRegex).AllValue("")
+		if len(options) == 1 {
+			queryVar = queryVar.Multi(false).IncludeAll(false)
+		}
+	}
+
+	return queryVar
 }
 
 var (
 	serviceNamespaceVarQuery = `label_values(target_info, service_namespace)`
-	serviceNameVarQuery      = `label_values(target_info{service_namespace=~"$service_name"}, service_name)`
+	serviceNameVarQuery      = `label_values(target_info{service_namespace=~"$service_namespace"}, service_name)`
 
-	httpReqsQuery = `
+	selectors = `service_namespace=~"$service_namespace", service_name=~"$service_name"`
+
+	httpReqsQuery = fmt.Sprintf(`
 sum by (status) (
   label_replace(
     rate(
-      http_server_request_duration_seconds_count{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_count{%s}[$__rate_interval]
     ),
     "status",
     "${1}xx",
     "http_response_status_code",
     "([0-9]).."
   )
-)`
+)`, selectors)
 
-	p99LatencyQuery = `
+	p99LatencyQuery = fmt.Sprintf(`
 histogram_quantile(
   0.99,
   sum by (le) (
     rate(
-      http_server_request_duration_seconds_bucket{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_bucket{%s}[$__rate_interval]
     )
   )
-)`
+)`, selectors)
 
-	p50LatencyQuery = `
+	p50LatencyQuery = fmt.Sprintf(`
 histogram_quantile(
 	0.50,	
 	sum by (le) (
 		rate(
-			http_server_request_duration_seconds_bucket{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+			http_server_request_duration_seconds_bucket{%s}[$__rate_interval]
 		)
 	)
-)`
+)`, selectors)
 
-	avgLatencyQuery = `
+	avgLatencyQuery = fmt.Sprintf(`
   sum(
     rate(
-      http_server_request_duration_seconds_sum{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_sum{%s}[$__rate_interval]
     )
   )
 /
   sum(
     rate(
-      http_server_request_duration_seconds_count{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_count{%s}[$__rate_interval]
     )
   )
-`
+`, selectors, selectors)
 
-	reqsRateOpsQuery = `
+	reqsRateOpsQuery = fmt.Sprintf(`
 label_join(
   sum by (http_request_method, http_route) (
     rate(
-      http_server_request_duration_seconds_count{service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_count{%s}[$__rate_interval]
     )
   ),
   "operation",
   " ",
   "http_request_method",
   "http_route"
-)`
+)`, selectors)
 	reqsRateOpsQueryId = "reqsRateOps"
 
 	reqsRateOpsErrorQuery = fmt.Sprintf(`
 (label_join(
   sum by (http_request_method, http_route) (
     rate(
-      http_server_request_duration_seconds_count{http_response_status_code=~"5..",service_name=~"$service_name",service_namespace=~"$service_namespace"}[$__rate_interval]
+      http_server_request_duration_seconds_count{http_response_status_code=~"5..", %s}[$__rate_interval]
     )
   ),
   "operation",
   " ",
   "http_request_method",
   "http_route"
-) or 0 * %s) / %s`, reqsRateOpsQuery, reqsRateOpsQuery)
+) or 0 * %s) / %s`, selectors, reqsRateOpsQuery, reqsRateOpsQuery)
 	reqsRateOpsErrorQueryId = "reqsRateOpsError"
 
-	p95LatencyOpsQuery = `
+	p95LatencyOpsQuery = fmt.Sprintf(`
 label_join(
   histogram_quantile(
     0.95,
-    sum by (le, http_request_method, http_route) (rate(http_server_request_duration_seconds_bucket[5m]))
+    sum by (le, http_request_method, http_route) (rate(http_server_request_duration_seconds_bucket{%s}[5m]))
   ),
   "operation",
   " ",
   "http_request_method",
   "http_route"
-)`
+)`, selectors)
 	p95LatencyOpsQueryId = "p95LatencyOps"
 )

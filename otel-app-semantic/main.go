@@ -9,7 +9,10 @@ import (
 )
 
 func main() {
-	d, err := dashboard.Build()
+	d, err := dashboard.Build(dashboard.Config{
+		LogsQuery: `{service_namespace=~"$service_namespace", service_name=~"$service_name"}`,
+		// ServiceNamespaces: []string{"beaverhabits"},
+	})
 	if err != nil {
 		panic(err)
 	}
