@@ -20,6 +20,8 @@ import (
 type Config struct {
 	LogsQuery string
 
+	Uid string
+
 	ServiceNamespaces []string
 	ServiceNames      []string
 }
@@ -46,6 +48,10 @@ func Build(cfg Config) (dashboard.Dashboard, error) {
 	if cfg.LogsQuery != "" {
 		builder = builder.WithRow(dashboard.NewRowBuilder("Logs")).
 			WithPanel(logsTablePanel(cfg.LogsQuery))
+	}
+
+	if cfg.Uid != "" {
+		builder = builder.Uid(cfg.Uid)
 	}
 
 	return builder.Build()
