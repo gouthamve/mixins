@@ -187,7 +187,7 @@ func rpsDetailsPanel() *table.PanelBuilder {
 func serviceNamespaceVar() *dashboard.QueryVariableBuilder {
 	return dashboard.NewQueryVariableBuilder("service_namespace").
 		Label("Service Namespace").
-		Query(dashboard.StringOrMap{String: cog.ToPtr(serviceNameVarQuery)}).
+		Query(dashboard.StringOrMap{String: cog.ToPtr(serviceNamespaceVarQuery)}).
 		Datasource(dashboard.DataSourceRef{
 			Type: cog.ToPtr(mixincommon.PrometheusDSType),
 			Uid:  cog.ToPtr("${" + mixincommon.PrometheusDSUid + "}"),
