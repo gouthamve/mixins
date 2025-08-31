@@ -37,7 +37,7 @@ func Build() (dashboard.Dashboard, error) {
 }
 
 func rpsOverviewPanel() *timeseries.PanelBuilder {
-	return timeseries.NewPanelBuilder().
+	return mixincommon.NewTimeseriesPanelBuilder().
 		Title("Requests/sec").
 		Unit("reqps").
 		Min(0).
@@ -46,13 +46,12 @@ func rpsOverviewPanel() *timeseries.PanelBuilder {
 				Expr(httpReqsQuery).
 				LegendFormat("{{ status }}"),
 		).
-		Overrides(mixincommon.HTTPRedReqsOverrides()).
-		Height(7)
+		Overrides(mixincommon.HTTPRedReqsOverrides())
 
 }
 
 func latencyOverviewPanel() *timeseries.PanelBuilder {
-	return timeseries.NewPanelBuilder().
+	return mixincommon.NewTimeseriesPanelBuilder().
 		Title("Latency").
 		Unit("s").
 		Min(0).
@@ -66,12 +65,11 @@ func latencyOverviewPanel() *timeseries.PanelBuilder {
 			prometheus.NewDataqueryBuilder().
 				Expr(avgLatencyQuery).
 				LegendFormat("Average"),
-		}).
-		Height(7)
+		})
 }
 
 func rpsDetailsPanel() *table.PanelBuilder {
-	return table.NewPanelBuilder().
+	return mixincommon.NewTablePanelBuilder().
 		Targets([]cog.Builder[variants.Dataquery]{
 			prometheus.NewDataqueryBuilder().
 				Expr(reqsRateOpsQuery).

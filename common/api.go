@@ -4,6 +4,8 @@ import (
 	"github.com/grafana/grafana-foundation-sdk/go/cog"
 	"github.com/grafana/grafana-foundation-sdk/go/dashboard"
 	"github.com/grafana/grafana-foundation-sdk/go/resource"
+	"github.com/grafana/grafana-foundation-sdk/go/table"
+	"github.com/grafana/grafana-foundation-sdk/go/timeseries"
 )
 
 const (
@@ -40,6 +42,23 @@ func NewLokiDSSelector() *dashboard.DatasourceVariableBuilder {
 		Type(LokiDSType)
 }
 
+func NewTablePanelBuilder() *table.PanelBuilder {
+	return table.NewPanelBuilder().
+		Datasource(dashboard.DataSourceRef{
+			Type: cog.ToPtr(string(PrometheusDSType)),
+			Uid:  cog.ToPtr("${" + PrometheusDSUid + "}"),
+		})
+}
+
+func NewTimeseriesPanelBuilder() *timeseries.PanelBuilder {
+	return timeseries.NewPanelBuilder().
+		Datasource(dashboard.DataSourceRef{
+			Type: cog.ToPtr(string(PrometheusDSType)),
+			Uid:  cog.ToPtr("${" + PrometheusDSUid + "}"),
+		}).Height(7)
+}
+
+// HTTPRedReqsOverrides returns field overrides for HTTP RED metrics (1xx, 2xx, 3xx, 4xx, 5xx)
 func HTTPRedReqsOverrides() []cog.Builder[dashboard.DashboardFieldConfigSourceOverrides] {
 	overrides := []struct {
 		name  string
