@@ -18,17 +18,25 @@ import (
 )
 
 type Config struct {
-	LogsQuery string
-
-	Uid string
+	Uid  string
+	Name string
 
 	ServiceNamespaces []string
 	ServiceNames      []string
+
+	LogsQuery string
 }
 
 func Build(cfg Config) (dashboard.Dashboard, error) {
-	builder := dashboard.NewDashboardBuilder("OTel Application Semantic convention").
-		Uid("otel-app-semantic-conventions").
+	if cfg.Uid == "" {
+		cfg.Uid = "otel-app-semantic-conventions"
+	}
+	if cfg.Name == "" {
+		cfg.Name = "OTel Application Semantic convention"
+	}
+
+	builder := dashboard.NewDashboardBuilder(cfg.Name).
+		Uid(cfg.Uid).
 		Tags([]string{"otel", "generated"}).
 		Refresh("1m").
 		Time("now-60m", "now").
@@ -48,10 +56,6 @@ func Build(cfg Config) (dashboard.Dashboard, error) {
 	if cfg.LogsQuery != "" {
 		builder = builder.WithRow(dashboard.NewRowBuilder("Logs")).
 			WithPanel(logsTablePanel(cfg.LogsQuery))
-	}
-
-	if cfg.Uid != "" {
-		builder = builder.Uid(cfg.Uid)
 	}
 
 	return builder.Build()
